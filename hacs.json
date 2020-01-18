@@ -1,0 +1,5 @@
+{
+  "name": "Custom icons loader",
+  "render_readme": true,
+  "persistent_directory": "cache"
+}
