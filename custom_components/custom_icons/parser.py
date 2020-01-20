@@ -152,11 +152,14 @@ class Parser:
 		zipf=zipfile.ZipFile(zipFilePath)
 		success = False
 		for fileInZip in zipf.namelist():
-			if match('fontello-\d+\/font\/fontello\.svg', fileInZip):
+			if match('fontello-\w+\/font\/fontello\.svg', fileInZip):
 				success = True
 				self._parseFontelloZipFile(iconGroup, zipf, zipFilePath, fileInZip)
 		if success:
 			remove(zipFilePath)
+			return True
+
+		_LOGGER.error("file '%s' unsupported", filePath)
 
 
 	def _parseFontelloSvgFile(self, iconGroup, sourceDoc):
