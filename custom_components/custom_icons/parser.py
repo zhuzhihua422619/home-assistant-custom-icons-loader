@@ -1,8 +1,9 @@
 import glob
 import logging
+import time
 import zipfile
 from os import listdir, mkdir, path, remove, walk
-from re import match
+from re import findall, match
 from xml.dom import minidom
 
 _LOGGER = logging.getLogger(__name__)
@@ -17,21 +18,26 @@ class Icon:
 
 class IconGroup:
 	name = ''
-	cachePath = ''
+	baseCachePath = ''
+	currentCachePath = ''
+	newCachePath = ''
 	iconFiles = []
 	needRefresh = False
 
 	def __init__(self, name, iconsPath):
 		self.name = name
 		self.cachePath = CACHE_PATH + name + '.js'
+		findCurrentCachePath = [CACHE_PATH + file for file in listdir(CACHE_PATH) if match(name + '.\\w+.js', file)] 
+		self.newCachePath = CACHE_PATH + name + '.' + str(round(time.time())) + '.js'
 		self.iconFiles = [iconsPath+file for file in listdir(iconsPath) if path.isfile(iconsPath+file)]
 		self.icons = {}
 
 		# Check if the icon group needs to be refreshed
-		if not path.exists(self.cachePath):
+		if len(findCurrentCachePath) is 0:
 			self.needRefresh = True
 		else:
-			cacheFileCreationTime = path.getmtime(self.cachePath)
+			self.currentCachePath = findCurrentCachePath[0]
+			cacheFileCreationTime = path.getmtime(self.currentCachePath)
 			files = [path.getmtime(file) for file in self.iconFiles];
 			if len(files) is not 0:
 				iconGroupLastModificationTime = max(files)
@@ -116,9 +122,12 @@ class Parser:
 		template = template.replace('{--ICONS--}', destDoc.toxml())
 		template = template.replace('{--SOURCE--}', iconGroup.name)
 		ft.close()
-		fc = open(iconGroup.cachePath, "w")
+		fc = open(iconGroup.newCachePath, "w")
 		fc.write(template)
 		fc.close()
+
+		if len(iconGroup.currentCachePath) is not 0:
+			remove(iconGroup.currentCachePath)
 
 		_LOGGER.info("icon group '%s' refreshed with %d icons", iconGroup.name, len(iconGroup.icons))
 
@@ -194,12 +203,13 @@ class Parser:
 		return [d for d in listdir(ICONS_PATH) if path.isdir(ICONS_PATH+d)]
 
 	def cleanUnusedCacheFiles(self):
-		existingCacheFiles = ['custom_components'+cf for cf in self.listCacheFiles()]
-		neededCacheFiles = [CACHE_PATH+ig+'.js' for ig in self._listCustomIconGroups()]
+		existingIconFiles = ['custom_components/' + cf for cf in self.listCacheFiles()]
+		neededIconGroups = [ig for ig in self._listCustomIconGroups()]
 		if(len([ICONS_PATH+file for file in listdir(ICONS_PATH) if path.isfile(ICONS_PATH+file)])) is not 0:
-			neededCacheFiles.append(CACHE_PATH+'custom.js')
+			neededIconGroups.append('custom')
 
-		for cacheFile in existingCacheFiles:
-			if cacheFile not in neededCacheFiles:
+		for cacheFile in existingIconFiles:
+			iconGroupName = findall("cache/(\w+)\.", cacheFile )[0]
+			if iconGroupName not in neededIconGroups:
 				_LOGGER.info("removing cache file '%s'", cacheFile)
 				remove(cacheFile)
